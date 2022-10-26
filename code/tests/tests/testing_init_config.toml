@@ -1,0 +1,44 @@
+[[variable]]
+    name="location"
+    type="static"
+    value="Cutting"
+
+[[variable]]
+    name="id"
+    type="single"
+    pattern="job_(.*)"
+
+[[variable]]
+    name="type"
+    type="retain"
+    pattern="type_(.*)" # optional
+    initial="banana"
+
+[[variable]]
+    name="raw_mode"
+    type="retain"
+    pattern="dir_(.*)"
+    initial="receive"
+
+[processing]
+    directory="functions"
+   #process.<process_name>=<function>
+    process.enum_mode={apply_to="raw_mode",module="mode_enumeration",output_as=["mode"],extra_args=[]}
+
+[[output]]
+    name = "scan_event"   # only used in logging
+    topic = "{{location}}/feeds/jobs"
+    triggers = ["id"]
+    #payload.<key>="<variable>"
+    payload.job_id="id"
+    payload.job_type="type"
+    payload.location="location"
+    payload.timestamp="timestamp"
+
+
+[[output]]
+    name = "mode_change_event"   # only used in logging
+    topic = "{{location}}/control/mode_change"
+    triggers = ["mode","id"]
+    trigger_policy="all"
+    payload.mode_changed_to="mode"

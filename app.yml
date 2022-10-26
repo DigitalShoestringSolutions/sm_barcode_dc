@@ -1,0 +1,16 @@
+version: '2'
+
+services:
+        app:
+                privileged: true
+                build: .
+                command: python3 main.py
+                devices:
+                        - /dev/input:/dev/input:ro
+                          #- /run/udev:/run/udev:ro
+                volumes:
+                        - ./config:/app/config
+                        #- ./functions:/app/functions
+                        #- ./code:/app/  
+                        - /etc/localtime:/etc/localtime:ro
+                        - /run/udev:/run/udev:ro
