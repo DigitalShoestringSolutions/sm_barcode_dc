@@ -1,0 +1,7 @@
+build: "placeholder"
+command: ["python", "main.py", "--log", "{{log_level}}"]
+devices:
+  - /dev/input:/dev/input:ro
+volumes:
+  - /run/udev:/run/udev:ro
+privileged: true
