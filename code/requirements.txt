@@ -4,3 +4,5 @@ paho-mqtt==1.6.1
 tomli==2.0.1
 pyzmq==24.0.1
 chevron==0.14.0
+jsonschema[format-nongpl]==4.21.1 
+

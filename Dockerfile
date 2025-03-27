@@ -1,7 +1,10 @@
-FROM python:3.9
+FROM python:3.13
 ENV PYTHONUNBUFFERED 1
+
 RUN apt-get update && apt-get install -y udev
-COPY ./requirements.txt /
-RUN pip install -r requirements.txt
+
+COPY ./code/requirements.txt /
+RUN pip3 install -r requirements.txt
 WORKDIR /app
-ADD ./code /app/
+COPY --from=solution_config module_config/ /app/module_config
+ADD ./code/ /app

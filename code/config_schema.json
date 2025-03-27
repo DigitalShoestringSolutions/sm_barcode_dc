@@ -1,0 +1,127 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Data Collection Service Module Config Schema",
+    "description": "A representation of the expected format for the config file for this service module",
+    "type": "object",
+    "properties": {
+        "input": {
+            "description": "Set of inputs",
+            "type": "object",
+            "patternProperties": {
+                "^.*$": {
+                    "description": "Name of the input",
+                    "type": "object",
+                    "properties": {}
+                }
+            }
+        },
+        "variable": {
+            "description": "Set of captured variables",
+            "type": "array",
+            "items": {
+                "description": "variable entry",
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "description": "Name of the variable",
+                        "type": "string"
+                    },
+                    "type": {
+                        "description": "The variable type",
+                        "type": "string",
+                        "enum": [
+                            "single",
+                            "retain",
+                            "static"
+                        ]
+                    },
+                    "pattern": {
+                        "description": "Regex pattern used to extract variable when type is single or retain",
+                        "type": "string"
+                    },
+                    "value": {
+                        "description": "Value when type is static"
+                    },
+                    "initial": {
+                        "description": "Initial value for retained variables",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name",
+                    "type"
+                ]
+            }
+        },
+        "processing": {
+            "description": "Set of additional processing",
+            "type": "object",
+            "properties": {
+                "directory": {
+                    "description": "Directory path where processing functions are found",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "directory"
+            ]
+        },
+        "output": {
+            "description": "Output Spec set",
+            "type": "array",
+            "items": {
+                "description": "output spec entry",
+                "type": "object"
+            }
+        },
+        "service_layer": {
+            "description": "Output Spec",
+            "type": "object",
+            "properties": {
+                "mqtt": {
+                    "type": "object",
+                    "description": "Contains the configuration for the MQTT client",
+                    "properties": {
+                        "broker": {
+                            "description": "URL of the mqtt broker",
+                            "type": "string"
+                        },
+                        "port": {
+                            "description": "Port to use when connecting to the broker",
+                            "type": "integer"
+                        },
+                        "topic_prefix": {
+                            "description": "prefix to prepend to the topic of all published messages",
+                            "type": "string"
+                        },
+                        "reconnect": {
+                            "description": "Reconnect characteristics",
+                            "type": "object",
+                            "properties": {
+                                "initial": {
+                                    "description": "Initial delay before attempting to reconnect (in seconds)",
+                                    "type": "number",
+                                    "minimum": 0
+                                },
+                                "backoff": {
+                                    "description": "Multiplier by which the delay increases on each failed reconnect",
+                                    "type": "number",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "description": "Upper limit on the delay between reconnect attempts (in seconds)",
+                                    "type": "integer",
+                                    "minimum": 0
+                                }
+                            }
+                        }
+                    },
+                    "required": [
+                        "broker",
+                        "port"
+                    ]
+                }
+            }
+        }
+    }
+}
