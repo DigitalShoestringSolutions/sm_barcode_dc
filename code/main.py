@@ -109,7 +109,7 @@ def graceful_signal_handler(sig, _frame):
     # todo handle gracefully
     global terminate_flag
     terminate_flag = True
-    signal.alarm(10)
+    signal.alarm(3)
 
 
 def harsh_signal_handler(sig, _frame):

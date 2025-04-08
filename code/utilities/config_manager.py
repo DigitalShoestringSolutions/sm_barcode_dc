@@ -38,7 +38,7 @@ logger = logging.getLogger("config")
 
 def get_config(arg_module_file=None, arg_user_file=None):
     user_config_file, user_config_src = select_file(
-        arg_user_file, "USER_CONFIG_FILE", "./user_config/user_config.toml"
+        arg_user_file, "USER_CONFIG_FILE", "./user_config/config.toml"
     )
 
     user_config = load_config(user_config_file, user_config_src)

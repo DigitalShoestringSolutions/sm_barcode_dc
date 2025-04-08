@@ -5,3 +5,4 @@ devices:
 volumes:
   - /run/udev:/run/udev:ro
 privileged: true
+x-shoestring-setup-command: ["python","setup.py"]
