@@ -84,6 +84,7 @@ if __name__ == "__main__":
                 if selected_index == 0:
                     continue
                 scanner_spec = available_list[selected_index-1]
+                break
             except ValueError:
                 print("\n!! Input was not a valid number, please try again.")
             except IndexError:
@@ -101,7 +102,7 @@ if __name__ == "__main__":
     scanner_device = barcode_scan.grab_exclusive_access(evdev.InputDevice(dev.device_node))
     
     import asyncio
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
     generator =  barcode_scan.key_event_loop()
     
     print("==========================================")
