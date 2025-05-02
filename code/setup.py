@@ -48,7 +48,7 @@ if __name__ == "__main__":
             print("No change in USB devices detected between when scanner was plugged in and unplugged")
         elif len(available_with) == 1:
             print("Found")
-            scanner_spec = available_with[0]
+            scanner_spec = list(available_with.values())[0]
             break
         else:
             print("Multiple USB device changes detected between when scanner was plugged in and unplugged")
@@ -122,6 +122,7 @@ if __name__ == "__main__":
                 print('unexpected response, please enter "y" or "n" followed by Enter')
             if answer in ["y","Y"]:
                 break
+            print("Scan again:")
         except StopAsyncIteration:
             print("An error occured when reading from the barcode scanner")
             break 
@@ -139,7 +140,7 @@ if __name__ == "__main__":
         "platform": scanner_spec["platform"],
     }
     import json
-    with open("/app/data/scanner_id") as f:
+    with open("/app/data/scanner_id","w") as f:
         json.dump(scanner_identity,f)
      
     print("==========================================")

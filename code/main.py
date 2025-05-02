@@ -149,7 +149,6 @@ def handle_args():
 
     return module_conf_file, user_conf_file, log_level
 
-
 if __name__ == "__main__":
     module_conf_file, user_conf_file, log_level = handle_args()
     logging.basicConfig(level=log_level)

@@ -43,8 +43,9 @@ class BarcodeScanner(multiprocessing.Process):
     def __init__(self, config, zmq_conf):
         super().__init__()
         # config
-        scanner_config = config["input"]["scanner"]
+        scanner_config = self.load_scanner_id()
         self.scanner_serial = scanner_config.get("serial", "")
+        self.vendor_model = scanner_config.get("vendor_model", "")
         self.connection_point = scanner_config.get("connection_point", ["*"])
         self.platform = scanner_config.get("platform", "")
         # declaration
@@ -56,6 +57,20 @@ class BarcodeScanner(multiprocessing.Process):
 
         # setup
         self.parser = Parser()
+
+    def load_scanner_id(self):
+        import json
+
+        try:
+            with open("/app/data/scanner_id", "r") as f:
+                scanner_identity = json.load(f)
+            return scanner_identity
+        except FileNotFoundError:
+            logger.error(
+                "Service Module not set up - couldn't find scanner id at /app/data/scanner_id. \n hibernating."
+            )
+            while True:
+                time.sleep(3600)
 
     def find_and_bind(self):
         count = 1
@@ -163,7 +178,8 @@ class BarcodeScanner(multiprocessing.Process):
                             "dev": dev,
                         }
                 except Exception as e:
-                    logger.error(e)
+                    pass
+                    # logger.error(e)
 
         return available
 
