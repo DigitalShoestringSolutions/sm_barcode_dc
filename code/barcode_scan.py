@@ -72,6 +72,7 @@ class BarcodeScanner(multiprocessing.Process):
             logger.error(
                 "Service Module not set up - couldn't find scanner id at /app/data/scanner_id."
             )
+            return {}
 
     def find_and_bind(self):
         count = 1
