@@ -17,40 +17,42 @@
         },
         "variable": {
             "description": "Set of captured variables",
-            "type": "array",
-            "items": {
-                "description": "variable entry",
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "description": "Name of the variable",
-                        "type": "string"
+            "type": "object",
+            "patternProperties": {
+                "^.*$": {
+                    "description": "variable entry",
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "description": "Name of the variable",
+                            "type": "string"
+                        },
+                        "type": {
+                            "description": "The variable type",
+                            "type": "string",
+                            "enum": [
+                                "single",
+                                "retain",
+                                "static"
+                            ]
+                        },
+                        "pattern": {
+                            "description": "Regex pattern used to extract variable when type is single or retain",
+                            "type": "string"
+                        },
+                        "value": {
+                            "description": "Value when type is static"
+                        },
+                        "initial": {
+                            "description": "Initial value for retained variables",
+                            "type": "string"
+                        }
                     },
-                    "type": {
-                        "description": "The variable type",
-                        "type": "string",
-                        "enum": [
-                            "single",
-                            "retain",
-                            "static"
-                        ]
-                    },
-                    "pattern": {
-                        "description": "Regex pattern used to extract variable when type is single or retain",
-                        "type": "string"
-                    },
-                    "value": {
-                        "description": "Value when type is static"
-                    },
-                    "initial": {
-                        "description": "Initial value for retained variables",
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "name",
-                    "type"
-                ]
+                    "required": [
+                        "name",
+                        "type"
+                    ]
+                }
             }
         },
         "processing": {

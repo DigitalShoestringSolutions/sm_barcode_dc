@@ -41,18 +41,27 @@ class Blackboard(multiprocessing.Process):
         # single | retain | static : [<variable>]
         # <variable>:<pattern>
         # <variable>:<current value>
-        self.variable_fmap, self.variable_rmap, self.patterns, self._blackboard = process_variable_config(
-            config['variable'])
-        self.variable_rmap['single'].append("timestamp")  # always a single use
+        self.variable_fmap, self.variable_rmap, self.patterns, self._blackboard = (
+            process_variable_config(config["variable"])
+        )
+        self.variable_rmap["single"].append("timestamp")  # always a single use
 
-        self.process_package = config['processing'].get('directory', None)
-        self.process_for_variable = reverse_map_processing(config['processing'].get('process',{}))
-        self.processes = config['processing'].get('process',{})  # <variable>: [<functions>]
+        self.process_package = config["processing"].get("directory", None)
+        self.process_for_variable = reverse_map_processing(
+            config["processing"].get("process", {})
+        )
+        self.processes = config["processing"].get(
+            "process", {}
+        )  # <variable>: [<functions>]
         # Todo: run hooks after initial blackboard setup
 
-        self.triggered_by_variable = reverse_map_triggers(config['output'])  # <variable>:[output_name]
-        self.outputs = {item['name']: item for item in config['output']}  # <output_name>:<output>
-        self.trigger_tracking = {item['name']: set() for item in config['output']}
+        self.triggered_by_variable = reverse_map_triggers(
+            config["output"]
+        )  # <variable>:[output_name]
+        self.outputs = {
+            item["name"]: item for item in config["output"]
+        }  # <output_name>:<output>
+        self.trigger_tracking = {item["name"]: set() for item in config["output"]}
 
         self.singles_to_clear = set()
 
@@ -61,17 +70,17 @@ class Blackboard(multiprocessing.Process):
         self.zmq_out = None
 
     def do_connect(self):
-        self.zmq_in = context.socket(self.zmq_conf['in']['type'])
-        if self.zmq_conf['in']["bind"]:
-            self.zmq_in.bind(self.zmq_conf['in']["address"])
+        self.zmq_in = context.socket(self.zmq_conf["in"]["type"])
+        if self.zmq_conf["in"]["bind"]:
+            self.zmq_in.bind(self.zmq_conf["in"]["address"])
         else:
-            self.zmq_in.connect(self.zmq_conf['in']["address"])
+            self.zmq_in.connect(self.zmq_conf["in"]["address"])
 
-        self.zmq_out = context.socket(self.zmq_conf['out']['type'])
-        if self.zmq_conf['out']["bind"]:
-            self.zmq_out.bind(self.zmq_conf['out']["address"])
+        self.zmq_out = context.socket(self.zmq_conf["out"]["type"])
+        if self.zmq_conf["out"]["bind"]:
+            self.zmq_out.bind(self.zmq_conf["out"]["address"])
         else:
-            self.zmq_out.connect(self.zmq_conf['out']["address"])
+            self.zmq_out.connect(self.zmq_conf["out"]["address"])
 
     def run(self):
         self.do_connect()
@@ -80,9 +89,9 @@ class Blackboard(multiprocessing.Process):
             # get barcode
             msg = self.get_input_message()
             try:
-                barcode = msg['barcode']
-                timestamp = msg['timestamp']
-                self._blackboard['timestamp'] = timestamp
+                barcode = msg["barcode"]
+                timestamp = msg["timestamp"]
+                self._blackboard["timestamp"] = timestamp
             except KeyError:
                 logger.warning(f"Message did not not have required keys: {msg}")
                 continue
@@ -135,35 +144,44 @@ class Blackboard(multiprocessing.Process):
 
         process_name = self.process_for_variable[var_name]
         process_details = self.processes[process_name]
-        extra_args = process_details.get('extra_args', [])
+        extra_args = process_details.get("extra_args", [])
         package_name = self.process_package
-        module_name = process_details.get('module', None)
-        process_outputs = process_details.get('output_as', [])
+        module_name = process_details.get("module", None)
+        process_outputs = process_details.get("output_as", [])
 
         if module_name is None or package_name is None:
-            logger.error(f"Insufficient config for process {process_name} "
-                         f"package={package_name} module={module_name}")
+            logger.error(
+                f"Insufficient config for process {process_name} "
+                f"package={package_name} module={module_name}"
+            )
             return {}
 
         try:
             hook_module = importlib.import_module(f"{package_name}.{module_name}")
             logger.debug(f"Imported {hook_module}")
         except ModuleNotFoundError as e:
-            logger.error(f"Trying to find module {package_name}.{module_name} "
-                         f"for variable {var_name} lead to exception: {e}")
+            logger.error(
+                f"Trying to find module {package_name}.{module_name} "
+                f"for variable {var_name} lead to exception: {e}"
+            )
             return {}
 
         try:
             result = hook_module.function(var_name, var_value, extra_args)
             if result:
                 logger.info(
-                    f"Processing for {var_name} in module {package_name}.{module_name} resulted in {result}")
+                    f"Processing for {var_name} in module {package_name}.{module_name} resulted in {result}"
+                )
             else:
-                logger.debug(f"Processing for {var_name} in module {package_name}.{module_name} did return")
+                logger.debug(
+                    f"Processing for {var_name} in module {package_name}.{module_name} did return"
+                )
                 result = []
         except Exception as e:
             result = []
-            logger.error(f"Processing for {var_name} in module {package_name}.{module_name} lead to exception{e}")
+            logger.error(
+                f"Processing for {var_name} in module {package_name}.{module_name} lead to exception{e}"
+            )
 
         lo = len(process_outputs)
         lr = len(result)
@@ -176,8 +194,8 @@ class Blackboard(multiprocessing.Process):
         base_set = self.triggered_by_variable.get(variable, [])
         triggered_set = []
         for name in base_set:
-            trigger_policy = self.outputs[name].get('trigger_policy', "any")
-            trigger_set = set(self.outputs[name]['triggers'])
+            trigger_policy = self.outputs[name].get("trigger_policy", "any")
+            trigger_set = set(self.outputs[name]["triggers"])
             if trigger_policy == "all":
                 self.trigger_tracking[name].add(variable)
                 if self.trigger_tracking[name] == trigger_set:
@@ -198,13 +216,13 @@ class Blackboard(multiprocessing.Process):
 
     def form_output(self, name):
         config = self.outputs[name]
-        topic = chevron.render(config['topic'], self._blackboard)
+        topic = chevron.render(config["topic"], self._blackboard)
         payload = {}
-        for key, variable in config['payload'].items():
+        for key, variable in config["payload"].items():
             payload[key] = self._blackboard.get(variable)
-            if variable in self.variable_rmap['single']:
+            if variable in self.variable_rmap["single"]:
                 self.singles_to_clear.add(variable)
-        return {'topic': topic, 'payload': payload}
+        return {"topic": topic, "payload": payload}
 
     def clear_singles(self):
         for var in self.singles_to_clear:
@@ -219,34 +237,34 @@ class Blackboard(multiprocessing.Process):
 
 def process_variable_config(variables):
     fmap = {}
-    rmap = {'single': [], 'retain': [], 'static': []}
+    rmap = {"single": [], "retain": [], "static": []}
     patterns = {}
     initial_blackboard = {}
 
-    for var in variables:
-        name = var.get('name')
-        var_type = var.get('type')
+    for entry_name, var in variables.items():
+        name = var.get("name", entry_name)
+        var_type = var.get("type")
 
         if name is None:
             logger.warning(f"Incomplete variable in config: {var}")
             continue
 
-        if var_type not in ['static', 'single', 'retain']:
+        if var_type not in ["static", "single", "retain"]:
             logger.warning(f"Invalid type {var_type} for variable {name}")
             continue
 
         fmap[name] = var_type
         rmap[var_type].append(name)
 
-        pattern = var.get('pattern')
+        pattern = var.get("pattern")
         if pattern is not None:
             patterns[name] = pattern
 
-        if var_type == 'single':
+        if var_type == "single":
             initial_blackboard[name] = None
-        if var_type == 'static':
+        if var_type == "static":
             initial_blackboard[name] = var.get("value")
-        if var_type == 'retain':
+        if var_type == "retain":
             initial_blackboard[name] = var.get("initial")
 
     return fmap, rmap, patterns, initial_blackboard
@@ -255,7 +273,7 @@ def process_variable_config(variables):
 def reverse_map_processing(processes):
     rmap = {}
     for process_name, process_details in processes.items():
-        variable = process_details.get('apply_to', None)
+        variable = process_details.get("apply_to", None)
         if variable:
             rmap[variable] = process_name
     return rmap
@@ -264,13 +282,13 @@ def reverse_map_processing(processes):
 def reverse_map_triggers(outputs):
     rmap = {}
     for output in outputs:
-        name = output.get('name')
+        name = output.get("name")
 
         if name is None:
             logger.warning(f"Output does not have name: {output}")
             continue
 
-        triggers = output.get('triggers', [])
+        triggers = output.get("triggers", [])
         for trigger in triggers:
             if trigger in rmap:
                 rmap[trigger].append(name)
