@@ -43,6 +43,7 @@ class BarcodeScanner(multiprocessing.Process):
     def __init__(self, config, zmq_conf):
         super().__init__()
         # config
+        self.set_up = False
         scanner_config = self.load_scanner_id()
         self.scanner_serial = scanner_config.get("serial", "")
         self.vendor_model = scanner_config.get("vendor_model", "")
@@ -64,13 +65,13 @@ class BarcodeScanner(multiprocessing.Process):
         try:
             with open("/app/data/scanner_id", "r") as f:
                 scanner_identity = json.load(f)
+
+            self.set_up = True
             return scanner_identity
         except FileNotFoundError:
             logger.error(
-                "Service Module not set up - couldn't find scanner id at /app/data/scanner_id. \n hibernating."
+                "Service Module not set up - couldn't find scanner id at /app/data/scanner_id."
             )
-            while True:
-                time.sleep(3600)
 
     def find_and_bind(self):
         count = 1
@@ -197,6 +198,10 @@ class BarcodeScanner(multiprocessing.Process):
     def run(self):
         self.do_connect()
         logger.info("connected")
+        if not self.set_up:
+            logger.error("Scanner id not configured - unable to continue! hibernating")
+            while True:
+                time.sleep(3600)
         self.find_and_bind()
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
