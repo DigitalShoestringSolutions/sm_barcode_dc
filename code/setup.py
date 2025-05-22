@@ -107,26 +107,32 @@ def test_scanner(barcode_scan):
     print("==========================================")
     print("Please scan a barcode to check that the scanner is working.")
     print("All scanned barcodes will be printed below.")
+    listen_task = None
     while True:
-        try: 
+        try:
+            if listen_task is None or listen_task.done():
+                listen_task = asyncio.Task(generator.__anext__(),loop=loop) 
             print("Listening for barcode scan...")
-            barcode, timestamp = loop.run_until_complete(asyncio.wait_for(generator.__anext__(),timeout=30))
-            print(f"Scanner read: {barcode}")
-            while True:
-                print("Is this correct? [y/n]")
-                answer = input()
-                if answer in ["y","Y","n","N"]:
+            done, _pending = loop.run_until_complete(asyncio.wait([listen_task],timeout=30,return_when=asyncio.FIRST_COMPLETED))
+            if listen_task in done:
+                barcode, timestamp = listen_task.result()
+                print(f"Scanner read: {barcode}")
+                while True:
+                    print("Is this correct? [y/n]")
+                    answer = input()
+                    if answer in ["y","Y","n","N"]:
+                        break
+                    print('unexpected response, please enter "y" or "n" followed by Enter')
+                if answer in ["y","Y"]:
                     break
-                print('unexpected response, please enter "y" or "n" followed by Enter')
-            if answer in ["y","Y"]:
-                break
-            print("Scan again:")
+                print("Scan again:")
+            else:
+                current_buffer = barcode_scan.parser.current_string_buffer.getvalue()
+            print(f"Listening for barcode timed out - current buffer: {current_buffer}")
         except StopAsyncIteration:
             print("An error occured when reading from the barcode scanner")
             break 
-        except TimeoutError:
-            current_buffer = barcode_scan.parser.current_string_buffer
-            print(f"Listening for barcode timed out - current buffer: {current_buffer}")
+            
 
 def save_scanner_id(scanner_spec):
     # save identity to file in data volume
@@ -144,10 +150,6 @@ def save_scanner_id(scanner_spec):
     import json
     with open("/app/data/scanner_id","w") as f:
         json.dump(scanner_identity,f)
-    
-    print("==========================================")
-    print("Finished")
-    print("==========================================")
 
 
 
@@ -178,23 +180,28 @@ if __name__ == "__main__":
         print("==========================================")
         print()
         while True:
-            print("1 - Redo setup")
-            print("2 - Test barcode scanner")
-            print("3 - Exit")
-            print("Select an option: ")
-            raw_selected_option = input()
-            try:
-                selected_option = int(raw_selected_option)
+            while True:
+                print("1 - Redo setup")
+                print("2 - Test barcode scanner")
+                print("3 - Exit")
+                print("Select an option: ")
+                raw_selected_option = input()
+                try:
+                    selected_option = int(raw_selected_option)
+                    break
+                except ValueError:
+                    print("\n!! Input was not a valid number, please try again.")
+            
+            if selected_option == 1:
+                setup(barcode_scan)
+            elif selected_option == 2:
+                barcode_scan.find_scanner()
+                test_scanner(barcode_scan)
+            elif selected_option == 3:
                 break
-            except ValueError:
-                print("\n!! Input was not a valid number, please try again.")
-        
-        if selected_option == 1:
-            setup(barcode_scan)
-        elif selected_option == 2:
-            barcode_scan.find_scanner()
-            test_scanner(barcode_scan)
-        elif selected_option == 3:
-            pass
     else:
         setup(barcode_scan)
+        
+    print("==========================================")
+    print("Finished")
+    print("==========================================")
