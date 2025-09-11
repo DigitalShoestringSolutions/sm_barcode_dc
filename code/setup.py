@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     # get all static variables as fingerprint
     fingerprint = []
-    for var in conf["variable"]:
+    for var in conf["variable"].values():
         if var["type"]=="static":
             fingerprint.append(f'{var["name"]} = {var["value"]}')
 

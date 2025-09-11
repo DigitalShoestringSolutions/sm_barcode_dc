@@ -6,3 +6,4 @@
     volume.user_config.path = "/app/user_config"
     volume.udev.path = "/run/udev"
     volume.udev.mode = "ro"
+    

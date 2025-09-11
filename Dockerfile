@@ -7,4 +7,5 @@ COPY ./code/requirements.txt /
 RUN pip3 install -r requirements.txt
 WORKDIR /app
 COPY --from=solution_config module_config/ /app/module_config
+COPY --from=solution_config plugins/ /app/plugins
 ADD ./code/ /app
