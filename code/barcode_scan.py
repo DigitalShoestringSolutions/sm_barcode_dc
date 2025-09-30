@@ -187,7 +187,24 @@ class BarcodeScanner(multiprocessing.Process):
 
     def grab_exclusive_access(self,device):
         self.scanner_device = device
-        self.scanner_device.grab()
+        retry_count = 0
+        while retry_count < 3:
+            try:
+                self.scanner_device.grab()
+            except OSError as e:
+                retry_count = retry_count + 1
+                if e.errno == 16:  # Device or resource busy
+                    logger.warning(
+                        "Device busy - waiting 2 seconds and trying again"
+                    )
+                    time.sleep(2)
+                else:
+                    logger.error(f"Error grabbing device: {e}")
+                    
+        if retry_count == 3:
+            logger.error("Retries exceeded! Unable to grab device")
+            raise OSError("Unable to grab device")
+                    
 
     def do_connect(self):
         self.zmq_out = context.socket(self.zmq_conf["out"]["type"])
