@@ -191,6 +191,7 @@ class BarcodeScanner(multiprocessing.Process):
         while retry_count < 3:
             try:
                 self.scanner_device.grab()
+                break
             except OSError as e:
                 retry_count = retry_count + 1
                 if e.errno == 16:  # Device or resource busy
