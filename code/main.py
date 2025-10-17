@@ -153,11 +153,23 @@ if __name__ == "__main__":
     module_conf_file, user_conf_file, log_level = handle_args()
     logging.basicConfig(level=log_level)
     conf = config_manager.get_config(module_conf_file, user_conf_file)
-    signal.signal(signal.SIGINT, graceful_signal_handler)
-    signal.signal(signal.SIGTERM, graceful_signal_handler)
-    signal.signal(signal.SIGALRM, harsh_signal_handler)
-    bbs = create_building_blocks(conf)
-    start_building_blocks(bbs)
-    monitor_building_blocks(bbs)
+
+    if conf.get(
+        "module_enabled", True
+    ):  # in case this feature is not used in any config files, start up anyway
+
+        signal.signal(signal.SIGINT, graceful_signal_handler)
+        signal.signal(signal.SIGTERM, graceful_signal_handler)
+        signal.signal(signal.SIGALRM, harsh_signal_handler)
+
+        bbs = create_building_blocks(conf)
+        start_building_blocks(bbs)
+        monitor_building_blocks(bbs)
+
+    else:
+        logger.info(
+            "Sensing module is disabled, sleeping for an hour before restarting"
+        )
+        time.sleep(3600)
 
     logger.info("Done")

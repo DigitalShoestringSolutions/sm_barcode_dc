@@ -155,39 +155,43 @@ if __name__ == "__main__":
     module_conf_file, user_conf_file, log_level = handle_args()
     logging.basicConfig(level=logging.WARNING)
     conf = config_manager.get_config(module_conf_file, user_conf_file)
-
-    # get all static variables as fingerprint
-    fingerprint = []
-    for var in conf["variable"].values():
-        if var["type"]=="static":
-            fingerprint.append(f'{var["name"]} = {var["value"]}')
-
-    barcode_scan = BarcodeScanner(conf,{})
     
-    print_output("Setting up Barcode Scanning Service Module", variant="heading")
-    print_output(f"Service module configured with: \n  {', \n  '.join(fingerprint)}")
-    
-    if barcode_scan.scanner_serial != "":
-        print_output("Barcode scanner already set up",variant="success")
-        
-        while True:
-            while True:
-                options = {1: "Redo setup", 2: "Test barcode scanner", 3: "Exit"}
-                raw_selected_option = get_input("Select an option: ", variant="select", options=options)
-                try:
-                    selected_option = int(raw_selected_option)
-                    break
-                except ValueError:
-                    print_output("Input was not a valid number, please try again.",variant="error")
-            
-            if selected_option == 1:
-                setup(barcode_scan)
-            elif selected_option == 2:
-                barcode_scan.find_scanner()
-                test_scanner(barcode_scan)
-            elif selected_option == 3:
-                break
+    if conf["module_enabled"] != True:
+        print_output("Module not enabled - exiting",variant="success")
     else:
-        setup(barcode_scan)
+
+        # get all static variables as fingerprint
+        fingerprint = []
+        for var in conf["variable"].values():
+            if var["type"]=="static":
+                fingerprint.append(f'{var["name"]} = {var["value"]}')
+
+        barcode_scan = BarcodeScanner(conf,{})
         
-    print_output("Setup complete - exiting", variant="success")
+        print_output("Setting up Barcode Scanning Service Module", variant="heading")
+        print_output(f"Service module configured with: \n  {', \n  '.join(fingerprint)}")
+        
+        if barcode_scan.scanner_serial != "":
+            print_output("Barcode scanner already set up",variant="success")
+            
+            while True:
+                while True:
+                    options = {1: "Redo setup", 2: "Test barcode scanner", 3: "Exit"}
+                    raw_selected_option = get_input("Select an option: ", variant="select", options=options)
+                    try:
+                        selected_option = int(raw_selected_option)
+                        break
+                    except ValueError:
+                        print_output("Input was not a valid number, please try again.",variant="error")
+                
+                if selected_option == 1:
+                    setup(barcode_scan)
+                elif selected_option == 2:
+                    barcode_scan.find_scanner()
+                    test_scanner(barcode_scan)
+                elif selected_option == 3:
+                    break
+        else:
+            setup(barcode_scan)
+            
+        print_output("Setup complete - exiting", variant="success")
