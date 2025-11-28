@@ -5,4 +5,5 @@ tomli==2.0.1
 pyzmq==26.3.0
 chevron==0.14.0
 jsonschema[format-nongpl]==4.21.1 
+requests==2.32.5
 

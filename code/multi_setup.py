@@ -4,6 +4,7 @@ import evdev
 import json
 import multi_barcode_scan
 import traceback
+import requests
 
 import utilities.config_manager as config_manager
 from main import handle_args
@@ -47,21 +48,22 @@ def release_all(all_devices):
         except Exception as e:
             pass
 
-print_output("Starting multi barcode scanner setup", variant="heading")
 if __name__ == "__main__":
     try:
         module_conf_file, user_conf_file, log_level = handle_args()
         logging.basicConfig(level=logging.WARNING)
         conf = config_manager.get_config(module_conf_file, user_conf_file)
-        # temp for testing
-        conf["locations"] = [{"id":"loc@1","name":"Front Desk"},{"id":"loc@2","name":"Back Room"}]
-
+        
+        url = conf.get("location_list_url","http://identity-sds.docker.local/id/list/loc")
+        response = requests.get(url)
+        location_list = response.json()
+        
         if conf["module_enabled"] != True:
             print_output("Module not enabled - exiting",variant="success")
         else:
             print_output("Setting up Barcode Scanning Service Module", variant="heading")
             setup, _scanner_map = multi_barcode_scan.load_scanner_map()
-            location_list = conf["locations"]
+            # fetch from identity service
 
             if setup:
                 print_output("Barcode scanner already set up", variant="success")
@@ -102,7 +104,9 @@ if __name__ == "__main__":
                                     break
                                 else:
                                     if device_id in new_scanner_map.keys():
-                                        print_output(f"This scanner is already set for location {new_scanner_map[device_id]["location"]}", variant="error")
+                                        loc_id = new_scanner_map[device_id]["location_id"]
+                                        loc_name = next((loc["name"] for loc in location_list if loc["id"]==loc_id), "unknown")
+                                        print_output(f"This scanner is already set for location {loc_name}", variant="error")
                                         continue
                                     
                                     confirmed = device_id
