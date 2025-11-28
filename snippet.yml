@@ -3,4 +3,4 @@ command: ["python", "main.py", "--log", "{{log_level}}"]
 devices:
   - /dev/input:/dev/input:ro
 privileged: true
-x-shoestring-setup-command: ["python","multi-setup.py"]
+x-shoestring-setup-command: ["python","multi_setup.py"]
