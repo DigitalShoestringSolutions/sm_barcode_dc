@@ -16,9 +16,11 @@ from KeyParser.Keyparser import Parser
 context = zmq.asyncio.Context()
 logger = logging.getLogger("main.multi_barcode_scan")
 
+
 class DeviceManager:
     # singleton to manage udev context
     __udev_ctx = None
+
     @classmethod
     def get_udev_context(self):
         if self.__udev_ctx == None:
@@ -61,42 +63,35 @@ class BarcodeScannerManager(multiprocessing.Process):
             while True:
                 time.sleep(3600)
 
-        self.find_and_bind()
+        devices_dict = {}
+        
+        for loc_id, device_path in self.scanner_map.items():
+            device = evdev.InputDevice(device_path)
+            device.grab()
+            devices_dict[loc_id] = device
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-        device_tasks = {}
-        for device, device_id in self.scanner_devices.items():
-            dev_task = loop.create_task(
-                device_scan_loop(device, device_id, self.dispatch)
-            )
-            device_tasks[device_id] = dev_task
+        device_scan_task = asyncio.Task(
+            device_scan_loop(devices_dict, self.dispatch), loop=loop
+        )
 
         while True:
-            # monitor tasks
+            # monitor task
             done, pending = loop.run_until_complete(
-                asyncio.wait(device_tasks.values(), return_when=asyncio.FIRST_COMPLETED)
+                asyncio.wait([device_scan_task], return_when=asyncio.FIRST_COMPLETED)
             )
-            for task in done:
-                device_id = None
-                for dev_id, dev_task in device_tasks.items():
-                    if dev_task == task:
-                        device_id = dev_id
-                        break
-                if device_id is not None:
-                    logger.info(f"Device {device_id} task completed - restarting")
-                    # restart task
-                    new_task = loop.create_task(
-                        device_scan_loop(
-                            self.scanner_devices[device_id], device_id, self.dispatch
-                        )
-                    )
-                    device_tasks[device_id] = new_task
+            if device_scan_task in done:
+                logger.error("Device scan loop ended unexpectedly - restarting")
+                device_scan_task = asyncio.Task(
+                    device_scan_loop(devices_dict, self.dispatch), loop=loop
+                )
 
     async def dispatch(self, payload):
         logger.debug(f"ZMQ dispatch of {payload}")
         await self.zmq_out.send_json(payload)
+
 
 ###################
 # Scanner map loading and writing
@@ -118,16 +113,17 @@ def load_scanner_map():
 def write_scanner_map(scanner_map):
     try:
         with open("/app/data/scanner_map", "w") as f:
-            json.dump(scanner_map,f)
+            json.dump(scanner_map, f)
     except FileNotFoundError:
         logger.error("Unable to write scanner map at /app/data/scanner_map.json")
+
 
 ###################
 # EVENT LOOPS
 ###################
 
 
-async def key_event_loop(device):
+async def key_event_generator(device):
     parser = Parser()
     # handles key events from the barcode scanner
     async for event in device.async_read_loop():
@@ -148,21 +144,26 @@ async def key_event_loop(device):
                 yield msg_content, timestamp
 
 
-async def device_scan_loop(device, device_id, dispatch_coro):
+async def device_scan_loop(devices_dict, dispatch_coro):
     # handles complete scans from the key_event_loop
-    async for barcode, timestamp in key_event_loop(device):
-        payload = {"dev_id": device_id, "barcode": barcode, "timestamp": timestamp}
+    async for payload in multi_device_scan_generator(devices_dict):
         await dispatch_coro(payload)
 
-async def multi_device_scan_loop(devices_dict):
+
+async def multi_device_scan_generator(devices_dict):
     # handles complete scans from multiple devices
     event_generators = {}
     for device_id, device in devices_dict.items():
-        event_generators[device_id] = key_event_loop(device)
+        event_generators[device_id] = key_event_generator(device)
 
-    next_event_tasks = {device_id: asyncio.Task(gen.__anext__()) for device_id, gen in event_generators.items()}
+    next_event_tasks = {
+        device_id: asyncio.Task(gen.__anext__())
+        for device_id, gen in event_generators.items()
+    }
     while True:
-        done, _pending = await asyncio.wait(next_event_tasks.values(), return_when=asyncio.FIRST_COMPLETED)
+        done, _pending = await asyncio.wait(
+            next_event_tasks.values(), return_when=asyncio.FIRST_COMPLETED
+        )
         for task in done:
             device_id = None
             for dev_id, dev_task in next_event_tasks.items():
@@ -172,10 +173,18 @@ async def multi_device_scan_loop(devices_dict):
             if device_id is not None:
                 try:
                     barcode, timestamp = task.result()
-                    payload = {"dev_id": device_id, "barcode": barcode, "timestamp": timestamp}
+                    payload = {
+                        "id": device_id,
+                        "barcode": barcode,
+                        "timestamp": timestamp,
+                    }
                     yield payload
                 except StopAsyncIteration:
-                    logger.error(f"Device {device_id} event generator stopped unexpectedly")
+                    logger.error(
+                        f"Device {device_id} event generator stopped unexpectedly"
+                    )
                     continue
                 # schedule next event read
-                next_event_tasks[device_id] = asyncio.Task(event_generators[device_id].__anext__())
+                next_event_tasks[device_id] = asyncio.Task(
+                    event_generators[device_id].__anext__()
+                )
