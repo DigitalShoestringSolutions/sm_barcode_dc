@@ -57,6 +57,7 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.WARNING)
         conf = config_manager.get_config(module_conf_file, user_conf_file)
 
+        # fetch from identity servic
         print_output("Fetching location list...", variant="info")
         url = conf.get(
             "location_list_url", "http://identity-sds.docker.local/id/list/loc"
@@ -79,8 +80,7 @@ if __name__ == "__main__":
             print_output(
                 "Setting up Barcode Scanning Service Module", variant="heading"
             )
-            setup, _scanner_map = multi_barcode_scan.load_scanner_map()
-            # fetch from identity service
+            setup, old_scanner_map = multi_barcode_scan.load_scanner_map()
 
             if setup:
                 print_output("Barcode scanner already set up", variant="success")
@@ -110,9 +110,10 @@ if __name__ == "__main__":
                 all_scanners_generator = multi_barcode_scan.multi_device_scan_generator(
                     devices_with_ids
                 )
-                identified_map = {}
-
+                
                 loop = asyncio.new_event_loop()
+                
+                identified_map = {}
                 end_early_flag = False
                 for location in location_list:
                     if end_early_flag:
@@ -148,6 +149,10 @@ if __name__ == "__main__":
                                         f"Skipping location {location['name']}",
                                         variant="info",
                                     )
+                                    if old_scanner_map[location["id"]] is not None:
+                                        response = get_input("This location had a previous scanner assigned - do you want to keep this assignment? ", variant="confirm")
+                                        if response.lower() in ["y","yes"]:
+                                            selected_device = old_scanner_map[location["id"]]
                                     break
                                 if barcode_content.lower() == "end":
                                     print_output(
