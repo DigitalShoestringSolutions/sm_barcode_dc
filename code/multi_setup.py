@@ -107,7 +107,7 @@ if __name__ == "__main__":
                                     
                                     confirmed = device_id
                                     print_output(f"Scanned barcode: {reading['barcode']}. Please scan again to confirm.", variant="info")
-                                break
+                                continue
                         except asyncio.TimeoutError:
                             print_output("No barcode scanned - please try again", variant="error")
 
