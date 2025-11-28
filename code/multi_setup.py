@@ -78,6 +78,11 @@ if __name__ == "__main__":
                     setup = False
 
             if not setup:
+
+                get_input(
+                    "Please ensure all barcode scanners are now connected",
+                    variant="continue",
+                )
                 all_devices = bind_all(
                     multi_barcode_scan.DeviceManager.get_udev_context()
                 )
@@ -97,9 +102,12 @@ if __name__ == "__main__":
                 identified_map = {}
 
                 loop = asyncio.new_event_loop()
+                end_early_flag = False
                 for location in location_list:
+                    if end_early_flag:
+                        break
                     print_output(
-                        f"Please scan a barcode using the scanner for location: {location['name']}",
+                        f"Please scan a barcode using the scanner for location: {location['name']}\nTo skip this location, type 'skip' and press Enter.\nTo end setup, type 'end' and press Enter.",
                         variant="heading",
                     )
 
@@ -122,6 +130,19 @@ if __name__ == "__main__":
                             if listen_task in done:
                                 reading = listen_task.result()
                                 device_id = reading["id"]
+                                barcode_content = reading["barcode"]
+                                if barcode_content.lower() == "skip":
+                                    print_output(
+                                        f"Skipping location {location['name']}",
+                                        variant="info",
+                                    )
+                                    break
+                                if barcode_content.lower() == "end":
+                                    print_output(
+                                        "Ending setup as requested", variant="info"
+                                    )
+                                    end_early_flag = True
+                                    break
                                 if device_id == confirmed:
                                     break
                                 else:
@@ -164,6 +185,7 @@ if __name__ == "__main__":
                         "location_id": location["id"],
                         "path": device_details.properties["ID_PATH"],
                     }
+                    
                 release_all(all_devices)
                 scanner_map = {
                     details["location_id"]: details["path"]
