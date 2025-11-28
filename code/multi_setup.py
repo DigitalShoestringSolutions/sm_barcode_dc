@@ -97,7 +97,7 @@ if __name__ == "__main__":
                             done, _pending = loop.run_until_complete(asyncio.wait([listen_task],timeout=30,return_when=asyncio.FIRST_COMPLETED))
                             if listen_task in done:
                                 reading = listen_task.result()
-                                device_id = reading["device_id"]
+                                device_id = reading["dev_id"]
                                 if device_id == confirmed:
                                     break
                                 else:
