@@ -5,6 +5,7 @@ import json
 import multi_barcode_scan
 import traceback
 import requests
+import time
 
 import utilities.config_manager as config_manager
 from main import handle_args
@@ -56,12 +57,22 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.WARNING)
         conf = config_manager.get_config(module_conf_file, user_conf_file)
 
+        print_output("Fetching location list...", variant="info")
         url = conf.get(
             "location_list_url", "http://identity-sds.docker.local/id/list/loc"
         )
-        response = requests.get(url)
-        location_list = response.json()
-
+        retry_count = 0
+        while retry_count < 3:
+            try:
+                response = requests.get(url)
+                location_list = response.json()
+                break
+            except Exception as e:
+                retry_count += 1
+                time.sleep(5)
+                if retry_count >= 3:
+                    raise e
+        
         if conf["module_enabled"] != True:
             print_output("Module not enabled - exiting", variant="success")
         else:
@@ -195,4 +206,4 @@ if __name__ == "__main__":
                 print_output("Setup complete!", variant="success")
     except Exception:
         print_output("Setup failed - please check logs", variant="error")
-        print_output(traceback.format_exc(), variant="error")
+        print_output(traceback.format_exc(), variant="log")
