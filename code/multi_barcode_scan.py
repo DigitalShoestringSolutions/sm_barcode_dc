@@ -112,7 +112,7 @@ def load_scanner_map():
 
 def write_scanner_map(scanner_map):
     try:
-        with open("/app/data/scanner_map", "w") as f:
+        with open("/app/data/scanner_map.json", "w") as f:
             json.dump(scanner_map, f)
     except FileNotFoundError:
         logger.error("Unable to write scanner map at /app/data/scanner_map.json")
