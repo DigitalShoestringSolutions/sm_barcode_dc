@@ -105,12 +105,12 @@ class BarcodeScannerManager(multiprocessing.Process):
 
 def load_scanner_map():
     try:
-        with open("/app/data/scanner_map", "r") as f:
+        with open("/app/data/scanner_map.json", "r") as f:
             scanner_map = json.load(f)
             return True, scanner_map
     except FileNotFoundError:
         logger.error(
-            "Service Module not set up - couldn't find scanner map at /app/data/scanner_map."
+            "Service Module not set up - couldn't find scanner map at /app/data/scanner_map.json"
         )
         return False, {}
 
@@ -120,9 +120,7 @@ def write_scanner_map(scanner_map):
         with open("/app/data/scanner_map", "w") as f:
             json.dump(scanner_map,f)
     except FileNotFoundError:
-        logger.error(
-            "Unable to write scanner map at /app/data/scanner_map."
-        )
+        logger.error("Unable to write scanner map at /app/data/scanner_map.json")
 
 ###################
 # EVENT LOOPS
@@ -162,12 +160,12 @@ async def multi_device_scan_loop(devices_dict):
     for device_id, device in devices_dict.items():
         event_generators[device_id] = key_event_loop(device)
 
-    next_event_coros = {device_id: asyncio.Task(gen.__anext__()) for device_id, gen in event_generators.items()}
+    next_event_tasks = {device_id: asyncio.Task(gen.__anext__()) for device_id, gen in event_generators.items()}
     while True:
-        done, _pending = await asyncio.wait(next_event_coros.values(), return_when=asyncio.FIRST_COMPLETED)
+        done, _pending = await asyncio.wait(next_event_tasks.values(), return_when=asyncio.FIRST_COMPLETED)
         for task in done:
             device_id = None
-            for dev_id, dev_task in next_event_coros.items():
+            for dev_id, dev_task in next_event_tasks.items():
                 if dev_task == task:
                     device_id = dev_id
                     break
@@ -180,4 +178,4 @@ async def multi_device_scan_loop(devices_dict):
                     logger.error(f"Device {device_id} event generator stopped unexpectedly")
                     continue
                 # schedule next event read
-                next_event_coros[device_id] = asyncio.Task(event_generators[device_id].__anext__())
+                next_event_tasks[device_id] = asyncio.Task(event_generators[device_id].__anext__())
