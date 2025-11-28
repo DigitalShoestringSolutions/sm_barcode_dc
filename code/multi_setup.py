@@ -72,7 +72,7 @@ if __name__ == "__main__":
                 time.sleep(5)
                 if retry_count >= 3:
                     raise e
-        
+
         if conf["module_enabled"] != True:
             print_output("Module not enabled - exiting", variant="success")
         else:
@@ -124,6 +124,7 @@ if __name__ == "__main__":
 
                     confirmed = None
                     listen_task = None
+                    selected_device = None
 
                     while True:
                         try:
@@ -155,6 +156,7 @@ if __name__ == "__main__":
                                     end_early_flag = True
                                     break
                                 if device_id == confirmed:
+                                    selected_device = device_id
                                     break
                                 else:
                                     if device_id in identified_map.keys():
@@ -186,17 +188,18 @@ if __name__ == "__main__":
                                 "No barcode scanned - please try again", variant="error"
                             )
 
-                    device_details = all_devices[device_id]["details"]
-                    print_output(
-                        f"Second scan confirmed - scanner set for location {location['name']}",
-                        variant="success",
-                    )
+                    if selected_device is not None:
+                        device_details = all_devices[selected_device]["details"]
+                        print_output(
+                            f"Second scan confirmed - scanner set for location {location['name']}",
+                            variant="success",
+                        )
 
-                    identified_map[device_id] = {
-                        "location_id": location["id"],
-                        "path": device_details.properties["ID_PATH"],
-                    }
-                    
+                        identified_map[selected_device] = {
+                            "location_id": location["id"],
+                            "path": device_details.properties["ID_PATH"],
+                        }
+
                 release_all(all_devices)
                 scanner_map = {
                     details["location_id"]: details["path"]
