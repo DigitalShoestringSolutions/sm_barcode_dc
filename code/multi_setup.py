@@ -94,6 +94,7 @@ if __name__ == "__main__":
                     "Please ensure all barcode scanners are now connected",
                     variant="continue",
                 )
+                time.sleep(2)
                 all_devices = bind_all(
                     multi_barcode_scan.DeviceManager.get_udev_context()
                 )
