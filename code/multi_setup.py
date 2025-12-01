@@ -66,8 +66,12 @@ async def setup_locations(location_list, old_scanner_map, all_devices):
         if end_early_flag:
             break
         print_output(
-            f"Please scan a barcode using the scanner for location: {location['name']}\nTo skip this location, type 'skip' and press Enter - or scan the 'skip' barcode.\nTo end setup, type 'end' and press Enter - or scan the 'end' barcode.",
+            f"Please scan a barcode using the scanner for location: {location['name']}",
             variant="heading",
+        )
+        print_output(
+            "To skip this location, type 'skip' and press Enter - or scan the 'skip' barcode.\nTo end setup, type 'end' and press Enter - or scan the 'end' barcode.",
+            variant="info",
         )
     
         confirmed = None
