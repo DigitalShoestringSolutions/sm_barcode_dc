@@ -230,6 +230,11 @@ async def multi_device_scan_generator(device_manager: DeviceManager):
                     generator.__anext__()
                 )
 
+        if len(next_event_tasks) == 0:
+            # no devices connected - wait and retry
+            await asyncio.sleep(1)
+            continue
+        
         done, _pending = await asyncio.wait(
             next_event_tasks.values(), return_when=asyncio.FIRST_COMPLETED
         )
