@@ -213,7 +213,7 @@ async def multi_device_scan_generator(device_manager: DeviceManager):
     
     while True:
         # schedule any generators that don't have a pending task
-        for device_id, generator in device_manager.event_generators.items():
+        for device_id, generator in device_manager.event_loop_generators.items():
             if device_id not in next_event_tasks or next_event_tasks[device_id].done():
                 next_event_tasks[device_id] = asyncio.Task(
                     generator.__anext__()
