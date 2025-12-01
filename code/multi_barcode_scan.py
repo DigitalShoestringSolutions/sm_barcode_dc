@@ -66,7 +66,7 @@ class BarcodeScannerManager(multiprocessing.Process):
         devices_dict = {}
         
         for loc_id, device_path in self.scanner_map.items():
-            device = evdev.InputDevice(device_path)
+            device = find_scanner_by_path(device_path)
             device.grab()
             devices_dict[loc_id] = device
 
@@ -93,10 +93,20 @@ class BarcodeScannerManager(multiprocessing.Process):
         await self.zmq_out.send_json(payload)
 
 
+#######
+# Device utilities
+#######
+
+
+def find_scanner_by_path(path):
+    for device in DeviceManager.get_udev_context().list_devices(subsystem="input", ID_BUS="usb"):
+        if device.properties.get("ID_PATH") == path:
+            return evdev.InputDevice(device.device_node)
+    return None
+
 ###################
 # Scanner map loading and writing
 ###################
-
 
 def load_scanner_map():
     try:
