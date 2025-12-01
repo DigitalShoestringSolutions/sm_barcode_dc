@@ -42,7 +42,7 @@ class BarcodeScannerManager(multiprocessing.Process):
     def __init__(self, config, zmq_conf):
         super().__init__()
 
-        self.scanner_map_exists, self.scanner_map = self.load_scanner_map()
+        self.scanner_map_exists, self.scanner_map = load_scanner_map()
 
         self.zmq_conf = zmq_conf
         self.zmq_out = None
