@@ -60,6 +60,7 @@ class DeviceManager(dict):
                 continue
             device = self.find_scanner_by_path(path)
             if device is not None:
+                device.grab()
                 self[loc_id] = device
 
     def device_lost(self, loc_id):
@@ -78,6 +79,7 @@ class DeviceManager(dict):
             if loc_id not in self:
                 device = self.find_scanner_by_path(self.target_paths[loc_id])
                 if device is not None:
+                    device.grab()
                     self[loc_id] = device
                     self.event_loop_generators[loc_id] = key_event_generator(device)
                     logger.info(f"Reconnected to device for location_id {loc_id}")
