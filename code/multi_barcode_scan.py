@@ -13,9 +13,17 @@ import logging
 import multiprocessing
 from KeyParser.Keyparser import Parser
 
-
 context = zmq.asyncio.Context()
 logger = logging.getLogger("main.multi_barcode_scan")
+
+try:
+    import pyudev
+
+    logger.info("pyudev version: {vsn}".format(vsn=pyudev.__version__))
+    logger.info("udev version: {vsn}".format(vsn=pyudev.udev_version()))
+except ImportError:
+    logger.error("Unable to import pyudev. Ensure that it is installed")
+    exit(0)
 
 
 class DeviceManager(dict):
@@ -29,17 +37,9 @@ class DeviceManager(dict):
 
     @classmethod
     def get_udev_context(cls):
-        if cls.__udev_ctx == None:
-            try:
-                import pyudev
-
-                logger.info("pyudev version: {vsn}".format(vsn=pyudev.__version__))
-                logger.info("udev version: {vsn}".format(vsn=pyudev.udev_version()))
-            except ImportError:
-                logger.error("Unable to import pyudev. Ensure that it is installed")
-                exit(0)
-
-            cls.__udev_ctx = pyudev.Context()
+        # if cls.__udev_ctx == None:
+            
+        #     cls.__udev_ctx = pyudev.Context()
         return pyudev.Context()
 
     @classmethod
