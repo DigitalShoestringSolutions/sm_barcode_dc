@@ -74,10 +74,10 @@ class DeviceManager(dict):
             self.event_loop_generators[device_id] = key_event_generator(device)
             
     def recover_disconnected_devices(self):
-        full_list = self.target_paths.keys()
-        for loc_id in full_list:
+        for loc_id, path in self.target_paths.items():
             if loc_id not in self:
-                device = self.find_scanner_by_path(self.target_paths[loc_id])
+                device = self.find_scanner_by_path(path)
+                logger.info(f"attempt to recover device for path {path} got device {device}")
                 if device is not None:
                     device.grab()
                     self[loc_id] = device
