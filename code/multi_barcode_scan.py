@@ -48,7 +48,11 @@ class DeviceManager(dict):
         for device in cls.get_udev_context().list_devices(subsystem="input", ID_BUS="usb"):
             if  device.device_node is not None and device.properties.get("ID_PATH") == path:
                 logger.info(f"Found device {device.device_node}")
-                return evdev.InputDevice(device.device_node)
+                try:
+                    return evdev.InputDevice(device.device_node)
+                except OSError as e:
+                    if e.errno == 19: # no device at node
+                        logger.error(f"Device at {device.device_node} not available")
         return None
 
     def set_target_device_paths(self, devices_path_map):
