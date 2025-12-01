@@ -7,6 +7,7 @@ import asyncio
 import zmq
 import zmq.asyncio
 import json
+import traceback
 
 import logging
 import multiprocessing
@@ -43,10 +44,10 @@ class DeviceManager(dict):
 
     @classmethod
     def find_scanner_by_path(cls,path):
-        print(f"Finding scanner at path: {path}")
+        logger.info(f"Searching for scanner at path: {path}")
         for device in cls.get_udev_context().list_devices(subsystem="input", ID_BUS="usb"):
             if  device.device_node is not None and device.properties.get("ID_PATH") == path:
-                print(f"Found device {device.device_node}")
+                logger.info(f"Found device {device.device_node}")
                 return evdev.InputDevice(device.device_node)
         return None
 
@@ -75,15 +76,19 @@ class DeviceManager(dict):
             
     def recover_disconnected_devices(self):
         for loc_id, path in self.target_paths.items():
-            if loc_id not in self:
-                device = self.find_scanner_by_path(path)
-                logger.info(f"attempt to recover device for path {path} got device {device}")
-                if device is not None:
-                    device.grab()
-                    self[loc_id] = device
-                    self.event_loop_generators[loc_id] = key_event_generator(device)
-                    logger.info(f"Reconnected to device for location_id {loc_id}")
+            try:
+                if loc_id not in self:
+                    device = self.find_scanner_by_path(path)
+                    logger.info(f"attempt to recover device for path {path} got device {device}")
+                    if device is not None:
+                        device.grab()
+                        self[loc_id] = device
+                        self.event_loop_generators[loc_id] = key_event_generator(device)
+                        logger.info(f"Reconnected to device for location_id {loc_id}")
+            except Exception as e:
+                logger.error(traceback.format_exc())
 
+            
 class BarcodeScannerManager(multiprocessing.Process):
 
     def __init__(self, config, zmq_conf):
