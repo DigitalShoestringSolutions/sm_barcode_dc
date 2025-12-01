@@ -53,6 +53,7 @@ class DeviceManager(dict):
                 except OSError as e:
                     if e.errno == 19: # no device at node
                         logger.error(f"Device at {device.device_node} not available")
+                        raise e
         return None
 
     def set_target_device_paths(self, devices_path_map):
@@ -80,17 +81,15 @@ class DeviceManager(dict):
             
     def recover_disconnected_devices(self):
         for loc_id, path in self.target_paths.items():
-            try:
-                if loc_id not in self:
-                    device = self.find_scanner_by_path(path)
-                    logger.info(f"attempt to recover device for path {path} got device {device}")
-                    if device is not None:
-                        device.grab()
-                        self[loc_id] = device
-                        self.event_loop_generators[loc_id] = key_event_generator(device)
-                        logger.info(f"Reconnected to device for location_id {loc_id}")
-            except Exception as e:
-                logger.error(traceback.format_exc())
+            if loc_id not in self:
+                device = self.find_scanner_by_path(path)
+                logger.info(f"attempt to recover device for path {path} got device {device}")
+                if device is not None:
+                    device.grab()
+                    self[loc_id] = device
+                    self.event_loop_generators[loc_id] = key_event_generator(device)
+                    logger.info(f"Reconnected to device for location_id {loc_id}")
+
 
             
 class BarcodeScannerManager(multiprocessing.Process):
@@ -143,6 +142,10 @@ class BarcodeScannerManager(multiprocessing.Process):
                 )
             if device_scan_task in done:
                 logger.error("Device revovery loop ended unexpectedly - restarting")
+                device_scan_task.cancel()
+                device_scan_task = asyncio.Task(
+                    device_scan_loop(device_manager, self.dispatch), loop=loop
+                )
                 device_recovery_task = asyncio.Task(recovery_loop(device_manager), loop=loop)
 
     async def dispatch(self, payload):
