@@ -51,6 +51,105 @@ def release_all(all_devices):
             pass
 
 
+async def setup_locations(location_list, old_scanner_map, all_devices):
+    devices_with_ids = {
+        index: entry["device"] for index, entry in enumerate(all_devices)
+    }
+    all_scanners_generator = multi_barcode_scan.multi_device_scan_generator(
+        devices_with_ids
+    )
+    
+    identified_map = {}
+    end_early_flag = False
+    
+    for location in location_list:
+        if end_early_flag:
+            break
+        print_output(
+            f"Please scan a barcode using the scanner for location: {location['name']}\nTo skip this location, type/scan 'skip' and press Enter.\nTo end setup, type/scan 'end' and press Enter.",
+            variant="heading",
+        )
+    
+        confirmed = None
+        selected_device = None
+        
+        # get device for location
+        while True:
+            reading = await all_scanners_generator.__anext__()
+            device_id = reading["id"]
+            barcode_content = reading["barcode"]
+            if barcode_content.lower() == "skip":
+                print_output(
+                    f"Skipping location {location['name']}",
+                    variant="info",
+                )
+                if old_scanner_map[location["id"]] is not None:
+                    print_output(
+                        "This location had a previous scanner assigned - do you want to keep this assignment? \nType/scan 'yes' or 'no' then press enter.",
+                        variant="info",
+                    )
+                    while True:
+                        response = await all_scanners_generator.__anext__()
+                        if response["barcode"].lower() in ["yes", "no"]:
+                            break
+                        print_output(
+                            "Unexpected response, please type/scan 'yes' or 'no' then press enter.",
+                            variant="error",
+                        )
+                    if response["barcode"].lower() in ["yes", "y"]:
+                        selected_device = old_scanner_map[location["id"]]
+                break
+            if barcode_content.lower() == "end":
+                print_output(
+                    "Ending setup as requested", variant="info"
+                )
+                end_early_flag = True
+                break
+            if device_id == confirmed:
+                selected_device = device_id
+                break
+            else:
+                if device_id in identified_map.keys():
+                    loc_id = identified_map[device_id][
+                        "location_id"
+                    ]
+                    loc_name = next(
+                        (
+                            loc["name"]
+                            for loc in location_list
+                            if loc["id"] == loc_id
+                        ),
+                        "unknown",
+                    )
+                    print_output(
+                        f"This scanner is already set for location {loc_name}",
+                        variant="error",
+                    )
+                    continue
+
+                confirmed = device_id
+                print_output(
+                    f"Scanned barcode: {reading['barcode']}. Please scan again to confirm.",
+                    variant="info",
+                )
+            continue
+        
+        # if device selected, confirm and save
+        if selected_device is not None:
+            device_details = all_devices[selected_device]["details"]
+            print_output(
+                f"Second scan confirmed - scanner set for location {location['name']}",
+                variant="success",
+            )
+
+            identified_map[selected_device] = {
+                "location_id": location["id"],
+                "path": device_details.properties["ID_PATH"],
+            }
+    
+    return identified_map
+
+
 if __name__ == "__main__":
     try:
         module_conf_file, user_conf_file, log_level = handle_args()
@@ -103,109 +202,12 @@ if __name__ == "__main__":
                         "No barcode scanners detected - please connect and try again",
                         variant="error",
                     )
-                    exit(0)
+                    exit(0)      
 
-                devices_with_ids = {
-                    index: entry["device"] for index, entry in enumerate(all_devices)
-                }
-                all_scanners_generator = multi_barcode_scan.multi_device_scan_generator(
-                    devices_with_ids
-                )
-                
                 loop = asyncio.new_event_loop()
+
+                identified_map = loop.run_until_complete(setup_locations())             
                 
-                identified_map = {}
-                end_early_flag = False
-                for location in location_list:
-                    if end_early_flag:
-                        break
-                    print_output(
-                        f"Please scan a barcode using the scanner for location: {location['name']}\nTo skip this location, type 'skip' and press Enter.\nTo end setup, type 'end' and press Enter.",
-                        variant="heading",
-                    )
-
-                    confirmed = None
-                    listen_task = None
-                    selected_device = None
-
-                    while True:
-                        try:
-                            if listen_task is None or listen_task.done():
-                                listen_task = asyncio.Task(
-                                    all_scanners_generator.__anext__(), loop=loop
-                                )
-                            done, _pending = loop.run_until_complete(
-                                asyncio.wait(
-                                    [listen_task],
-                                    timeout=30,
-                                    return_when=asyncio.FIRST_COMPLETED,
-                                )
-                            )
-                            if listen_task in done:
-                                reading = listen_task.result()
-                                device_id = reading["id"]
-                                barcode_content = reading["barcode"]
-                                if barcode_content.lower() == "skip":
-                                    print_output(
-                                        f"Skipping location {location['name']}",
-                                        variant="info",
-                                    )
-                                    if old_scanner_map[location["id"]] is not None:
-                                        response = get_input("This location had a previous scanner assigned - do you want to keep this assignment? ", variant="confirm")
-                                        if response.lower() in ["y","yes"]:
-                                            selected_device = old_scanner_map[location["id"]]
-                                    break
-                                if barcode_content.lower() == "end":
-                                    print_output(
-                                        "Ending setup as requested", variant="info"
-                                    )
-                                    end_early_flag = True
-                                    break
-                                if device_id == confirmed:
-                                    selected_device = device_id
-                                    break
-                                else:
-                                    if device_id in identified_map.keys():
-                                        loc_id = identified_map[device_id][
-                                            "location_id"
-                                        ]
-                                        loc_name = next(
-                                            (
-                                                loc["name"]
-                                                for loc in location_list
-                                                if loc["id"] == loc_id
-                                            ),
-                                            "unknown",
-                                        )
-                                        print_output(
-                                            f"This scanner is already set for location {loc_name}",
-                                            variant="error",
-                                        )
-                                        continue
-
-                                    confirmed = device_id
-                                    print_output(
-                                        f"Scanned barcode: {reading['barcode']}. Please scan again to confirm.",
-                                        variant="info",
-                                    )
-                                continue
-                        except asyncio.TimeoutError:
-                            print_output(
-                                "No barcode scanned - please try again", variant="error"
-                            )
-
-                    if selected_device is not None:
-                        device_details = all_devices[selected_device]["details"]
-                        print_output(
-                            f"Second scan confirmed - scanner set for location {location['name']}",
-                            variant="success",
-                        )
-
-                        identified_map[selected_device] = {
-                            "location_id": location["id"],
-                            "path": device_details.properties["ID_PATH"],
-                        }
-
                 release_all(all_devices)
                 scanner_map = {
                     details["location_id"]: details["path"]
