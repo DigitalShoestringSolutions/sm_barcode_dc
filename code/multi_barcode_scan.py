@@ -99,8 +99,10 @@ class BarcodeScannerManager(multiprocessing.Process):
 
 
 def find_scanner_by_path(path):
+    print(f"Finding scanner at path: {path}")
     for device in DeviceManager.get_udev_context().list_devices(subsystem="input", ID_BUS="usb"):
-        if device.properties.get("ID_PATH") == path:
+        if  device.device_node is not None and device.properties.get("ID_PATH") == path:
+            print(f"Found device {device.device_node}")
             return evdev.InputDevice(device.device_node)
     return None
 
@@ -166,11 +168,19 @@ async def multi_device_scan_generator(devices_dict):
     for device_id, device in devices_dict.items():
         event_generators[device_id] = key_event_generator(device)
 
+    # initial setup
     next_event_tasks = {
         device_id: asyncio.Task(gen.__anext__())
         for device_id, gen in event_generators.items()
     }
+    
     while True:
+        for device_id, generator in event_generators.items():
+            if device_id not in next_event_tasks or next_event_tasks[device_id].done():
+                next_event_tasks[device_id] = asyncio.Task(
+                    generator.__anext__()
+                )
+
         done, _pending = await asyncio.wait(
             next_event_tasks.values(), return_when=asyncio.FIRST_COMPLETED
         )
@@ -194,7 +204,3 @@ async def multi_device_scan_generator(devices_dict):
                         f"Device {device_id} event generator stopped unexpectedly"
                     )
                     continue
-                # schedule next event read
-                next_event_tasks[device_id] = asyncio.Task(
-                    event_generators[device_id].__anext__()
-                )
