@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
                 loop = asyncio.new_event_loop()
 
-                identified_map = loop.run_until_complete(setup_locations())             
+                identified_map = loop.run_until_complete(setup_locations(location_list, old_scanner_map, all_devices))             
                 
                 release_all(all_devices)
                 scanner_map = {
