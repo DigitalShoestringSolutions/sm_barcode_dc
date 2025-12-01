@@ -66,7 +66,7 @@ async def setup_locations(location_list, old_scanner_map, all_devices):
         if end_early_flag:
             break
         print_output(
-            f"Please scan a barcode using the scanner for location: {location['name']}\nTo skip this location, type/scan 'skip' and press Enter.\nTo end setup, type/scan 'end' and press Enter.",
+            f"Please scan a barcode using the scanner for location: {location['name']}\nTo skip this location, type 'skip' and press Enter - or scan the 'skip' barcode.\nTo end setup, type 'end' and press Enter - or scan the 'end' barcode.",
             variant="heading",
         )
     
@@ -85,7 +85,7 @@ async def setup_locations(location_list, old_scanner_map, all_devices):
                 )
                 if old_scanner_map[location["id"]] is not None:
                     print_output(
-                        "This location had a previous scanner assigned - do you want to keep this assignment? \nType/scan 'yes' or 'no' then press enter.",
+                        "This location had a previous scanner assigned - do you want to keep this assignment? \nType 'yes' or 'no' then press enter - or scan the appropriate barcode.",
                         variant="info",
                     )
                     while True:
@@ -93,7 +93,7 @@ async def setup_locations(location_list, old_scanner_map, all_devices):
                         if response["barcode"].lower() in ["yes", "no"]:
                             break
                         print_output(
-                            "Unexpected response, please type/scan 'yes' or 'no' then press enter.",
+                            f"Unexpected response - received {response["barcode"]}, please type 'yes' or 'no' then press enter - or scan the appropriate barcode.",
                             variant="error",
                         )
                     if response["barcode"].lower() in ["yes", "y"]:

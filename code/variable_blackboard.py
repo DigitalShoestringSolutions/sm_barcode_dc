@@ -41,9 +41,10 @@ class Blackboard(multiprocessing.Process):
         # single | retain | static : [<variable>]
         # <variable>:<pattern>
         # <variable>:<current value>
-        self.variable_fmap, self.variable_rmap, self.patterns, self._blackboard = (
+        self.variable_fmap, self.variable_rmap, self.patterns, self._base_blackboard = (
             process_variable_config(config["variable"])
         )
+        self._blackboard = {}
         self.variable_rmap["single"].append("timestamp")  # always a single use
 
         self.process_package = config["processing"].get("directory", None)
@@ -69,6 +70,11 @@ class Blackboard(multiprocessing.Process):
         self.zmq_in = None
         self.zmq_out = None
 
+    def blackboard(self,key):
+        if key not in self._blackboard:
+            self._blackboard[key] = self._base_blackboard
+        return self._blackboard
+
     def do_connect(self):
         self.zmq_in = context.socket(self.zmq_conf["in"]["type"])
         if self.zmq_conf["in"]["bind"]:
@@ -89,19 +95,23 @@ class Blackboard(multiprocessing.Process):
             # get barcode
             msg = self.get_input_message()
             try:
+                id = msg["id"]
+                blackboard = self.blackboard(id)
+                blackboard["location_id"] = id
+                
                 barcode = msg["barcode"]
                 timestamp = msg["timestamp"]
-                self._blackboard["timestamp"] = timestamp
+                blackboard["timestamp"] = timestamp
             except KeyError:
                 logger.warning(f"Message did not not have required keys: {msg}")
                 continue
             # extract variable
             variable, value = self.extract_variable(barcode)
             # apply to Blackboard
-            self._blackboard[variable] = value
+            blackboard[variable] = value
             # process hooks
             new_vars = self.process_hooks(variable, value)
-            self._blackboard.update(new_vars)
+            blackboard.update(new_vars)
             # evaluate triggers
             triggered_set = []
             updated_vars = list(new_vars.keys())
@@ -109,9 +119,9 @@ class Blackboard(multiprocessing.Process):
             for var in updated_vars:
                 triggered_set.extend(self.get_triggered(var))
             # form outputs
-            outputs = self.get_outputs(triggered_set)
+            outputs = self.get_outputs(triggered_set, blackboard)
             # clear single use
-            self.clear_singles()
+            self.clear_singles(blackboard)
             # dispatch outputs
             self.dispatch(outputs)
 
@@ -207,26 +217,26 @@ class Blackboard(multiprocessing.Process):
         logger.debug(f"Triggered set = {triggered_set}")
         return triggered_set
 
-    def get_outputs(self, triggered_set):
+    def get_outputs(self, triggered_set, blackboard):
         outputs = []
         for triggered_output in triggered_set:
-            outputs.append(self.form_output(triggered_output))
+            outputs.append(self.form_output(triggered_output,blackboard))
         logger.debug(f"Outputs are {outputs}")
         return outputs
 
-    def form_output(self, name):
+    def form_output(self, name, blackboard):
         config = self.outputs[name]
-        topic = chevron.render(config["topic"], self._blackboard)
+        topic = chevron.render(config["topic"], blackboard)
         payload = {}
         for key, variable in config["payload"].items():
-            payload[key] = self._blackboard.get(variable)
+            payload[key] = blackboard.get(variable)
             if variable in self.variable_rmap["single"]:
                 self.singles_to_clear.add(variable)
         return {"topic": topic, "payload": payload}
 
-    def clear_singles(self):
+    def clear_singles(self,blackboard):
         for var in self.singles_to_clear:
-            self._blackboard[var] = None
+            blackboard[var] = None
 
     def dispatch(self, outputs):
         for output_msg in outputs:
