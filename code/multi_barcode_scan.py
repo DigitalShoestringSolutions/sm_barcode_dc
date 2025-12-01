@@ -27,8 +27,6 @@ except ImportError:
 
 
 class DeviceManager(dict):
-    # singleton to manage udev context
-    __udev_ctx = None
 
     def __init__(self, init_device_set={}):
         super().__init__(init_device_set)
@@ -37,9 +35,6 @@ class DeviceManager(dict):
 
     @classmethod
     def get_udev_context(cls):
-        # if cls.__udev_ctx == None:
-            
-        #     cls.__udev_ctx = pyudev.Context()
         return pyudev.Context()
 
     @classmethod
@@ -53,7 +48,6 @@ class DeviceManager(dict):
                 except OSError as e:
                     if e.errno == 19: # no device at node
                         logger.error(f"Device at {device.device_node} not available")
-                        raise e
         return None
 
     def set_target_device_paths(self, devices_path_map):
@@ -141,12 +135,7 @@ class BarcodeScannerManager(multiprocessing.Process):
                 )
             if device_recovery_task in done:
                 logger.error("Device revovery loop ended unexpectedly - restarting")
-                device_scan_task.cancel()
-                device_scan_task = asyncio.Task(
-                    device_scan_loop(device_manager, self.dispatch), loop=loop
-                )
                 device_recovery_task = asyncio.Task(recovery_loop(device_manager), loop=loop)
-                device_manager.recover_disconnected_devices()
 
     async def dispatch(self, payload):
         logger.debug(f"ZMQ dispatch of {payload}")
