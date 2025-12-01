@@ -40,7 +40,7 @@ class DeviceManager(dict):
                 exit(0)
 
             cls.__udev_ctx = pyudev.Context()
-        return cls.__udev_ctx
+        return pyudev.Context()
 
     @classmethod
     def find_scanner_by_path(cls,path):
@@ -74,11 +74,11 @@ class DeviceManager(dict):
             del self[loc_id]
         if loc_id in self.event_loop_generators:
             del self.event_loop_generators[loc_id]
-            
+
     def initialise_event_generators(self):
         for device_id, device in self.items():
             self.event_loop_generators[device_id] = key_event_generator(device)
-            
+
     def recover_disconnected_devices(self):
         for loc_id, path in self.target_paths.items():
             if loc_id not in self:
