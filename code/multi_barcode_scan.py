@@ -91,7 +91,6 @@ class DeviceManager(dict):
                     logger.info(f"Reconnected to device for location_id {loc_id}")
 
 
-            
 class BarcodeScannerManager(multiprocessing.Process):
 
     def __init__(self, config, zmq_conf):
@@ -140,7 +139,7 @@ class BarcodeScannerManager(multiprocessing.Process):
                 device_scan_task = asyncio.Task(
                     device_scan_loop(device_manager, self.dispatch), loop=loop
                 )
-            if device_scan_task in done:
+            if device_recovery_task in done:
                 logger.error("Device revovery loop ended unexpectedly - restarting")
                 device_scan_task.cancel()
                 device_scan_task = asyncio.Task(
