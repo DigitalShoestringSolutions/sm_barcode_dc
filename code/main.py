@@ -37,6 +37,7 @@ import utilities.config_manager as config_manager
 from variable_blackboard import Blackboard
 from barcode_scan import BarcodeScanner
 from wrapper import MQTTServiceWrapper
+from multi_barcode_scan import BarcodeScannerManager
 
 logger = logging.getLogger("main")
 terminate_flag = False
@@ -50,7 +51,7 @@ def create_building_blocks(config):
     wrapper_in = {"type": zmq.PULL, "address": "tcp://127.0.0.1:4001", "bind": False}
 
     bbs["bs"] = {
-        "class": BarcodeScanner,
+        "class": BarcodeScannerManager,
         "args": [config, {"out": bs_out}],
     }
 
