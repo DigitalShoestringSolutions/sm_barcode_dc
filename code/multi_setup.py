@@ -56,7 +56,7 @@ async def setup_locations(location_list, old_scanner_map, all_devices):
         index: entry["device"] for index, entry in enumerate(all_devices)
     }
     all_scanners_generator = multi_barcode_scan.multi_device_scan_generator(
-        devices_with_ids
+        multi_barcode_scan.DeviceManager(devices_with_ids)
     )
     
     identified_map = {}
@@ -87,7 +87,7 @@ async def setup_locations(location_list, old_scanner_map, all_devices):
                     f"Skipping location {location['name']}",
                     variant="info",
                 )
-                if old_scanner_map[location["id"]] is not None:
+                if old_scanner_map.get(location["id"]) is not None:
                     print_output(
                         "This location had a previous scanner assigned - do you want to keep this assignment? \nType 'yes' or 'no' then press enter - or scan the appropriate barcode.",
                         variant="info",

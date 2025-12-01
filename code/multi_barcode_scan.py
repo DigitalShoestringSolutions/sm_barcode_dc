@@ -17,13 +17,18 @@ context = zmq.asyncio.Context()
 logger = logging.getLogger("main.multi_barcode_scan")
 
 
-class DeviceManager:
+class DeviceManager(dict):
     # singleton to manage udev context
     __udev_ctx = None
 
+    def __init__(self, init_device_set={}):
+        super().__init__(init_device_set)
+        self.target_paths = {}
+        self.event_loop_generators = {}
+
     @classmethod
-    def get_udev_context(self):
-        if self.__udev_ctx == None:
+    def get_udev_context(cls):
+        if cls.__udev_ctx == None:
             try:
                 import pyudev
 
@@ -33,9 +38,49 @@ class DeviceManager:
                 logger.error("Unable to import pyudev. Ensure that it is installed")
                 exit(0)
 
-            self.__udev_ctx = pyudev.Context()
-        return self.__udev_ctx
+            cls.__udev_ctx = pyudev.Context()
+        return cls.__udev_ctx
 
+    @classmethod
+    def find_scanner_by_path(cls,path):
+        print(f"Finding scanner at path: {path}")
+        for device in cls.get_udev_context().list_devices(subsystem="input", ID_BUS="usb"):
+            if  device.device_node is not None and device.properties.get("ID_PATH") == path:
+                print(f"Found device {device.device_node}")
+                return evdev.InputDevice(device.device_node)
+        return None
+
+    def set_target_device_paths(self, devices_path_map):
+        for loc_id, path in devices_path_map.items():
+            self.target_paths[loc_id] = path
+
+    def find_and_bind_targets(self):
+        for loc_id, path in self.target_paths.items():
+            if loc_id in self: # already found and bound
+                continue
+            device = self.find_scanner_by_path(path)
+            if device is not None:
+                self[loc_id] = device
+
+    def device_lost(self, loc_id):
+        if loc_id in self:
+            del self[loc_id]
+        if loc_id in self.event_loop_generators:
+            del self.event_loop_generators[loc_id]
+            
+    def initialise_event_generators(self):
+        for device_id, device in self.items():
+            self.event_loop_generators[device_id] = key_event_generator(device)
+            
+    def recover_disconnected_devices(self):
+        full_list = self.target_paths.keys()
+        for loc_id in full_list:
+            if loc_id not in self:
+                device = self.find_scanner_by_path(self.target_paths[loc_id])
+                if device is not None:
+                    self[loc_id] = device
+                    self.event_loop_generators[loc_id] = key_event_generator(device)
+                    logger.info(f"Reconnected to device for location_id {loc_id}")
 
 class BarcodeScannerManager(multiprocessing.Process):
 
@@ -63,48 +108,35 @@ class BarcodeScannerManager(multiprocessing.Process):
             while True:
                 time.sleep(3600)
 
-        devices_dict = {}
-        
-        for loc_id, device_path in self.scanner_map.items():
-            device = find_scanner_by_path(device_path)
-            device.grab()
-            devices_dict[loc_id] = device
+        device_manager = DeviceManager()
+        device_manager.set_target_device_paths(self.scanner_map)
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
         device_scan_task = asyncio.Task(
-            device_scan_loop(devices_dict, self.dispatch), loop=loop
+            device_scan_loop(device_manager, self.dispatch), loop=loop
         )
+
+        device_recovery_task = asyncio.Task(recovery_loop(device_manager), loop=loop)
 
         while True:
             # monitor task
             done, pending = loop.run_until_complete(
-                asyncio.wait([device_scan_task], return_when=asyncio.FIRST_COMPLETED)
+                asyncio.wait([device_scan_task, device_recovery_task], return_when=asyncio.FIRST_COMPLETED)
             )
             if device_scan_task in done:
                 logger.error("Device scan loop ended unexpectedly - restarting")
                 device_scan_task = asyncio.Task(
-                    device_scan_loop(devices_dict, self.dispatch), loop=loop
+                    device_scan_loop(device_manager, self.dispatch), loop=loop
                 )
+            if device_scan_task in done:
+                logger.error("Device revovery loop ended unexpectedly - restarting")
+                device_recovery_task = asyncio.Task(recovery_loop(device_manager), loop=loop)
 
     async def dispatch(self, payload):
         logger.debug(f"ZMQ dispatch of {payload}")
         await self.zmq_out.send_json(payload)
-
-
-#######
-# Device utilities
-#######
-
-
-def find_scanner_by_path(path):
-    print(f"Finding scanner at path: {path}")
-    for device in DeviceManager.get_udev_context().list_devices(subsystem="input", ID_BUS="usb"):
-        if  device.device_node is not None and device.properties.get("ID_PATH") == path:
-            print(f"Found device {device.device_node}")
-            return evdev.InputDevice(device.device_node)
-    return None
 
 ###################
 # Scanner map loading and writing
@@ -129,6 +161,14 @@ def write_scanner_map(scanner_map):
     except FileNotFoundError:
         logger.error("Unable to write scanner map at /app/data/scanner_map.json")
 
+
+###################
+# RECOVERY LOOPS
+###################
+async def recovery_loop(device_manager:DeviceManager, interval_seconds:int=10):
+    while True:
+        device_manager.recover_disconnected_devices()
+        await asyncio.sleep(interval_seconds)
 
 ###################
 # EVENT LOOPS
@@ -156,26 +196,24 @@ async def key_event_generator(device):
                 yield msg_content, timestamp
 
 
-async def device_scan_loop(devices_dict, dispatch_coro):
+async def device_scan_loop(device_manager:DeviceManager, dispatch_coro):
     # handles complete scans from the key_event_loop
-    async for payload in multi_device_scan_generator(devices_dict):
+    async for payload in multi_device_scan_generator(device_manager):
         await dispatch_coro(payload)
 
 
-async def multi_device_scan_generator(devices_dict):
-    # handles complete scans from multiple devices
-    event_generators = {}
-    for device_id, device in devices_dict.items():
-        event_generators[device_id] = key_event_generator(device)
+async def multi_device_scan_generator(device_manager: DeviceManager):
+    device_manager.initialise_event_generators()
 
     # initial setup
     next_event_tasks = {
         device_id: asyncio.Task(gen.__anext__())
-        for device_id, gen in event_generators.items()
+        for device_id, gen in device_manager.event_loop_generators.items()
     }
     
     while True:
-        for device_id, generator in event_generators.items():
+        # schedule any generators that don't have a pending task
+        for device_id, generator in device_manager.event_generators.items():
             if device_id not in next_event_tasks or next_event_tasks[device_id].done():
                 next_event_tasks[device_id] = asyncio.Task(
                     generator.__anext__()
@@ -186,10 +224,12 @@ async def multi_device_scan_generator(devices_dict):
         )
         for task in done:
             device_id = None
+            # get device id for completed task
             for dev_id, dev_task in next_event_tasks.items():
                 if dev_task == task:
                     device_id = dev_id
                     break
+            # process completed task
             if device_id is not None:
                 try:
                     barcode, timestamp = task.result()
@@ -204,3 +244,9 @@ async def multi_device_scan_generator(devices_dict):
                         f"Device {device_id} event generator stopped unexpectedly"
                     )
                     continue
+                except OSError as e:
+                    if e.errno == 19:  # device disconnected
+                        logger.error(f"Device {device_id} disconnected")
+                        device_manager.device_lost(device_id)
+                        del next_event_tasks[device_id]
+                        continue
