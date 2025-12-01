@@ -146,6 +146,7 @@ class BarcodeScannerManager(multiprocessing.Process):
                     device_scan_loop(device_manager, self.dispatch), loop=loop
                 )
                 device_recovery_task = asyncio.Task(recovery_loop(device_manager), loop=loop)
+                device_manager.recover_disconnected_devices()
 
     async def dispatch(self, payload):
         logger.debug(f"ZMQ dispatch of {payload}")
