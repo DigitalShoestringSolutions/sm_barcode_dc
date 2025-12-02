@@ -166,15 +166,17 @@ if __name__ == "__main__":
             "location_list_url", "http://identity-sds.docker.local/id/list/loc"
         )
         retry_count = 0
-        while retry_count < 3:
+        max_retries = 30
+        while retry_count < max_retries:
             try:
                 response = requests.get(url)
                 location_list = response.json()
                 break
             except Exception as e:
+                logger.info(f"Unable to fetch location list from {url}: {str(e)} -- retrying (attempt {retry_count})...")
                 retry_count += 1
                 time.sleep(5)
-                if retry_count >= 3:
+                if retry_count >= max_retries:
                     raise e
 
         if conf["module_enabled"] != True:
