@@ -25,7 +25,9 @@
 import io
 import os
 import json
+import logging
 
+logger = logging.getLogger("Keyparser")
 
 class Parser:
     def __init__(self):
@@ -71,7 +73,7 @@ class Parser:
                     value = self.modifier_table[key]  # does not currently differentiate between modifiers
                 else:
                     value = self.plain_table[key]
-                # print("Parsed > ",value)
+                logger.debug(f"Parsed {key} > {value}")
                 self.current_string_buffer.write(value)
         except KeyError:
             pass  # ignore if key not found
