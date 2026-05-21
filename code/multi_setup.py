@@ -12,6 +12,8 @@ from main import handle_args
 
 logger = logging.getLogger("multi_setup")
 
+logging.basicConfig(level=logging.DEBUG)
+
 
 def get_input(prompt, variant="text", options=None):
     spec = {"type": "input", "prompt": prompt, "variant": variant}
