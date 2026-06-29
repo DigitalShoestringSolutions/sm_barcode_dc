@@ -29,48 +29,58 @@ import logging
 
 logger = logging.getLogger("Keyparser")
 
+
 class Parser:
     def __init__(self):
         # config
         this_dir = os.path.dirname(os.path.realpath(__file__))
-        with open(os.path.join(this_dir, 'config.json')) as json_file:
+        with open(os.path.join(this_dir, "config.json")) as json_file:
             cfg = json.load(json_file)
 
-        self.plain_table = {y: x for x, y in cfg['plain_table'].items()}
-        self.modifier_table = {y: x for x, y in cfg['modifier_table'].items()}
-        self.entry_delimiter_list = cfg['entry_delimiter_keycodes']
-        self.modifier_list = cfg['modifier_keycodes']
+        self.plain_table = {y: x for x, y in cfg["plain_table"].items()}
+        self.modifier_table = {y: x for x, y in cfg["modifier_table"].items()}
+        self.entry_delimiter_list = cfg["entry_delimiter_keycodes"]
+        self.modifier_list = cfg["modifier_keycodes"]
 
         # vsr setup
         self.current_string_buffer = io.StringIO()
-        self.modifiers_pressed = []
-        self.delimiters_pressed = []
+        self.modifiers_pressed = set()
+        self.delimiters_pressed = set()
         self.completed_string_buffer_array = []
 
     def parse(self, key, down):
         if key in self.modifier_list:
-            if down or down == 1:
-                self.modifiers_pressed.append(key)
+            if down == 1:
+                self.modifiers_pressed.add(key)
+                logger.debug(f"Modifier add {key}")
             else:
-                self.modifiers_pressed.remove(key)
+                self.modifiers_pressed.discard(key)
+                logger.debug(f"Modifier remove {key}")
             return
 
         if key in self.entry_delimiter_list:
-            if down or down == 1:
-                self.delimiters_pressed.append(key)
+            if down == 1:
+                self.delimiters_pressed.add(key)
             else:
-                self.delimiters_pressed.remove(key)
+                self.delimiters_pressed.discard(key)
 
-            if all(elem in self.delimiters_pressed for elem in self.entry_delimiter_list):
-                self.completed_string_buffer_array.append(self.current_string_buffer.getvalue())
+            if all(
+                elem in self.delimiters_pressed for elem in self.entry_delimiter_list
+            ):
+                self.completed_string_buffer_array.append(
+                    self.current_string_buffer.getvalue()
+                )
                 self.current_string_buffer.close()
                 self.current_string_buffer = io.StringIO()
+                self.delimiters_pressed.clear()
                 return
 
         try:
             if down == 1:
                 if len(self.modifiers_pressed) > 0:
-                    value = self.modifier_table[key]  # does not currently differentiate between modifiers
+                    value = self.modifier_table[
+                        key
+                    ]  # does not currently differentiate between modifiers
                 else:
                     value = self.plain_table[key]
                 logger.debug(f"Parsed {key} > {value}")
@@ -92,7 +102,7 @@ class Parser:
 
 
 if __name__ == "__main__":
-    print('Running Keyparser.py unit tests...')
+    print("Running Keyparser.py unit tests...")
     x = Parser()
     x.parse(42, 1)  # shift down
     x.parse(30, 1)  # a down
@@ -103,7 +113,7 @@ if __name__ == "__main__":
     x.parse(28, 1)
     x.parse(28, 0)
     assert x.complete_available()
-    assert x.get_next_string() == 'Ab'
+    assert x.get_next_string() == "Ab"
     assert not x.complete_available()
 
     x.parse(30, 1)
@@ -124,8 +134,8 @@ if __name__ == "__main__":
     x.parse(28, 1),
     x.parse(28, 0),
 
-    assert x.get_next_string() == 'asd'
-    assert x.get_next_string() == 'vbn'
+    assert x.get_next_string() == "asd"
+    assert x.get_next_string() == "vbn"
     assert not x.complete_available()
 
     print("successs")
